@@ -18,6 +18,8 @@ const App = () => {
         'insertion_sort',
         'selection_sort',
         'heap_sort',
+        'counting_sort',
+        'radix_sort',
     ];
 
     const graphAlgorithms = ['bfs', 'dfs'];
@@ -46,13 +48,14 @@ const App = () => {
         }
 
         try {
+            console.log('Payload:', payload); // Debugging
             const response = await axios.post('http://localhost:5000/run-algorithm', payload);
             setSteps(response.data.steps || []);
             setCurrentStepIndex(0);
             setIsAnimating(false);
         } catch (error) {
-            console.error('Error:', error);
-            alert('Something went wrong! Please check your input.');
+            console.error('Error:', error.response?.data || error.message);
+            alert(error.response?.data?.error || 'Something went wrong! Please check your input.');
         }
     };
 
@@ -90,9 +93,9 @@ const App = () => {
 
         return {
             name: currentNode,
-            children: (graph[currentNode] || []).map((child) =>
-                transformGraphToTree(graph, child, visited)
-            ),
+            children: (graph[currentNode] || [])
+                .filter((child) => !visited.has(child)) // Avoid cycles
+                .map((child) => transformGraphToTree(graph, child, visited)),
         };
     };
 
@@ -110,24 +113,33 @@ const App = () => {
             <div id="treeWrapper" style={{ width: '100%', height: '400px' }}>
                 <Tree
                     data={treeData}
-                    orientation="vertical" // Tree grows vertically
+                    orientation="vertical"
                     nodeSize={{ x: 200, y: 100 }}
-                    translate={{ x: 300, y: 50 }} // Adjust tree position
-                    pathFunc={(linkData, orientation) => {
-                        return orientation === 'vertical' && currentStepIndex
-                            ? 'M0,0 C0,0 100,0 100,100'
-                            : 'M0,0 C100,50 100,50 100,100';
-                    }}
-                    nodeLabelComponent={{
-                        render: (
-                            <text
-                                style={{
-                                    fill: steps[currentStepIndex]?.current === treeData.name ? 'red' : 'black',
-                                }}
-                            >
-                                Node
-                            </text>
-                        ),
+                    translate={{ x: 300, y: 50 }}
+                    renderCustomNodeElement={(rd3tProps) => {
+                        const { nodeDatum } = rd3tProps;
+                        return (
+                            <g>
+                                <circle
+                                    r={15}
+                                    fill={
+                                        steps[currentStepIndex]?.current === nodeDatum.name
+                                            ? 'red'
+                                            : 'blue'
+                                    }
+                                    stroke="black"
+                                    strokeWidth="2"
+                                />
+                                <text
+                                    x={20}
+                                    fill="black"
+                                    fontSize="12"
+                                    dominantBaseline="middle"
+                                >
+                                    {nodeDatum.name}
+                                </text>
+                            </g>
+                        );
                     }}
                 />
             </div>
@@ -275,7 +287,7 @@ const App = () => {
                                 key={idx}
                                 style={{
                                     width: '20px',
-                                    height: `${value * 10}px`, // Scale for visualization
+                                    height: `${value * 10}px`,
                                     margin: '0 5px',
                                     backgroundColor: 'blue',
                                 }}
